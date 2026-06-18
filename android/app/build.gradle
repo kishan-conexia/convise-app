@@ -18,17 +18,18 @@ if (localPropertiesFile.exists()) {
 
 def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
 if (flutterVersionCode == null) {
-    flutterVersionCode = "17"
+    flutterVersionCode = "27"
 }
 
 def flutterVersionName = localProperties.getProperty("flutter.versionName")
 if (flutterVersionName == null) {
-    flutterVersionName = "1.1.7"
+    flutterVersionName = "1.2.7"
 }
 
 android {
     namespace = "com.conexia.mnr"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
+//    compileSdk = flutter.compileSdkVersion // commented so can target api by number
     ndkVersion = "27.2.12479018"
 
     compileOptions {
@@ -42,7 +43,8 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
         minSdk = 25
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
+//        targetSdk = flutter.targetSdkVersion // commented so can target api by number
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
     }
@@ -74,7 +76,7 @@ android {
         release {
             minifyEnabled true
             shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig = signingConfigs.release
         }
     }

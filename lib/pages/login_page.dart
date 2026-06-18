@@ -193,9 +193,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         return;
       }
 
+      // AFTER — same 3 places
       if (AppState().deviceChanged) {
-        _navigateToPage(DeviceInfoPage(deviceId: AppState().deviceId,
-            deviceChanged: AppState().deviceChanged));
+        _navigateToPage(DeviceInfoPage(
+          deviceId:     AppState().deviceId,
+          deviceData:   AppState().deviceData,   // ← add this
+          deviceChanged: AppState().deviceChanged,
+        ));
         return;
       }
 
@@ -287,9 +291,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           return;
         }
 
+        // AFTER — same 3 places
         if (AppState().deviceChanged) {
-          _navigateToPage(DeviceInfoPage(deviceId: AppState().deviceId,
-              deviceChanged: AppState().deviceChanged));
+          _navigateToPage(DeviceInfoPage(
+            deviceId:     AppState().deviceId,
+            deviceData:   AppState().deviceData,   // ← add this
+            deviceChanged: AppState().deviceChanged,
+          ));
           return;
         }
 
@@ -428,9 +436,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           return;
         }
 
+        // AFTER — same 3 places
         if (AppState().deviceChanged) {
-          _navigateToPage(DeviceInfoPage(deviceId: AppState().deviceId,
-              deviceChanged: AppState().deviceChanged));
+          _navigateToPage(DeviceInfoPage(
+            deviceId:     AppState().deviceId,
+            deviceData:   AppState().deviceData,   // ← add this
+            deviceChanged: AppState().deviceChanged,
+          ));
           return;
         }
 

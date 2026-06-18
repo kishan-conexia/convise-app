@@ -4,6 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:mnr/pages/home_page.dart';
 import 'package:mnr/pages/login_page.dart';
 import 'package:mnr/pages/warning_page.dart';
+import 'package:mnr/providers/feasibility_provider.dart';
+import 'package:mnr/providers/hr_request_provider.dart';
+import 'package:mnr/providers/lead_provider.dart';
+import 'package:mnr/providers/profile_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,17 +27,37 @@ void main() async {
 
   // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform,);
 
+  // this one is original
   await Supabase.initialize(
       url: 'https://raldbhdfedggcwgyzknk.supabase.co',
       anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhbGRiaGRmZWRnZ2N3Z3l6a25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4MjAyMjIsImV4cCI6MjA2MDM5NjIyMn0.An1ievbDN6AZMbD6GzEZj2o5uqnstKQrXh0CVIPSF4k'
   );
 
+  // this one is for testing purpose
+  // await Supabase.initialize(
+  //     url: 'https://ecevnkynswvadbeefgqm.supabase.co',
+  //     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjZXZua3luc3d2YWRiZWVmZ3FtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0NjU2MDQsImV4cCI6MjA2OTA0MTYwNH0.rznEVI5IaYHXySLv6Nxi57-CBEfI62mhSKPLvY1GejE'
+  // );
+
   // Initialize Error Logger
   // await ErrorLogger.initialize();
 
+  // runApp(
+  //   ChangeNotifierProvider(
+  //     create: (context) => AppState(),
+  //     child: const MyApp(),
+  //   ),
+  // );
+
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => AppState(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppState()),
+        ChangeNotifierProvider(create: (_) => LeadProvider()),
+        ChangeNotifierProvider(create: (_) => FeasibilityProvider()),
+        ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        ChangeNotifierProvider(create: (_) => HrRequestProvider()),
+      ],
       child: const MyApp(),
     ),
   );

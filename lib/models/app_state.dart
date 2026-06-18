@@ -20,6 +20,45 @@ class AppState extends ChangeNotifier {
   factory AppState() => _instance;
   AppState._internal();
 
+  // --- Access Control Sets ---
+  final Set<int> allowedMonthlyAttendanceDepartments = {1, 30, 301, 302, 303};
+  final Set<int> allowedDailyAttendance = {1, 30, 301, 303};
+
+  final Set<int> allowedSpanco = {1, 20, 201, 202, 2011, 2012, 2013, 2014, 105};
+
+  // final Set<int> allowedFeasibility = {1, 20, 30, 103, 105, 201, 202, 303, 2011, 2012, 2013, 2014};
+  final Set<int> managerOfFeasibility = {103, 105};
+
+  final Set<int> hr_admin = {30, 301, 303, 105};
+
+  // --- Calculated Access Booleans (Getters) ---
+
+  bool get canAccessMonthlyAttendance {
+    return managedDepartmentIds.any(allowedMonthlyAttendanceDepartments.contains);
+  }
+
+  bool get canAccessDailyAttendance {
+    return managedDepartmentIds.any(allowedDailyAttendance.contains);
+  }
+
+  // bool get canAccessFeasibility {
+  //   // Check if the departmentId is not null AND if it is contained in the allowedFeasibility set.
+  //   return departmentId != null && allowedFeasibility.contains(departmentId);
+  // }
+
+  bool get canManageFeasibility {
+    return managedDepartmentIds.any(managerOfFeasibility.contains);
+  }
+
+  bool get canAccessProfileRequest {
+    return managedDepartmentIds.any(hr_admin.contains);
+  }
+
+  bool get canAccessSpanco {
+    // Check if the departmentId is not null AND if it is contained in the allowedFeasibility set.
+    return departmentId != null && allowedSpanco.contains(departmentId);
+  }
+
   final Gradient appBarGradient = LinearGradient(
     colors: [Colors.blue.shade400, Colors.blue.shade600, Colors.blue.shade800],
     begin: Alignment.topLeft,
@@ -31,6 +70,9 @@ class AppState extends ChangeNotifier {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  // Add anywhere in AppState class
+  bool get isTestAccount => empCode == 'app_test';
 
   final user = supabase.auth.currentUser;
 
@@ -57,7 +99,7 @@ class AppState extends ChangeNotifier {
   int maxVersion = 0;
 
   String deviceId = '';
-  Map<String, dynamic>? _deviceData;
+  Map<String, dynamic> deviceData = {};
   bool deviceChanged = false;
 
   bool? geofencing;
@@ -192,7 +234,7 @@ class AppState extends ChangeNotifier {
       if (!kIsWeb) {
         if (Platform.isAndroid) {
           final androidInfo = await _deviceInfo.androidInfo;
-          _deviceData = {
+          deviceData = {
             'platform': 'Android',
             'model': androidInfo.model,
             'manufacturer': androidInfo.manufacturer,
@@ -202,7 +244,7 @@ class AppState extends ChangeNotifier {
           deviceId = androidInfo.id ?? '';
         } else if (Platform.isIOS) {
           final iosInfo = await _deviceInfo.iosInfo;
-          _deviceData = {
+          deviceData = {
             'platform': 'iOS',
             'model': iosInfo.model,
             'name': iosInfo.name,
@@ -212,7 +254,7 @@ class AppState extends ChangeNotifier {
         }
       } else {
         final webInfo = await _deviceInfo.webBrowserInfo;
-        _deviceData = {
+        deviceData = {
           'platform': 'Web',
           'browser': webInfo.browserName.toString(),
           'user_agent': webInfo.userAgent,
@@ -221,7 +263,7 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to initialize ErrorLogger: $e');
       // Set a default device data in case of initialization failure
-      _deviceData = {
+      deviceData = {
         'platform': kIsWeb ? 'Web (Init Failed)' : 'Mobile/IOS (Init Failed)',
         'error': e.toString(),
         'app_version': _appVersion, // Still try to get app version
@@ -245,7 +287,7 @@ class AppState extends ChangeNotifier {
           'email': user!.email!,
           'full_name': user!.userMetadata?['full_name'],
           'avatar_url': user!.userMetadata?['avatar_url'],
-          'device_info': _deviceData,
+          'device_info': deviceData,
         });
         // Set default values after insertion
         userId = user!.id;
@@ -264,15 +306,21 @@ class AppState extends ChangeNotifier {
         ovUsername = userResponse['ov_username'] ?? '';
         ovPassword = userResponse['ov_password'] ?? '';
         geofencing = userResponse['geofencing'];
+        departmentId = userResponse['department'];
 
         final storedInfo = Map<String, dynamic>.from(userResponse['device_info'] ?? {});
-        final currentInfo = _deviceData ?? {};
+        final currentInfo = deviceData ?? {};
 
-        if (userResponse['device_info'] == null || userResponse['device_info'] == ''){
-          await _updateDeviceId();
-        } else if (!mapEquals(storedInfo, currentInfo)) {
-          deviceChanged = true;
-          await _newDeviceId();
+        // ── Skip device check for test account ──────────────────
+        final isTestAccount = (userResponse['employee_code'] ?? '') == 'app_test';
+
+        if (!isTestAccount) {
+          if (userResponse['device_info'] == null || userResponse['device_info'] == '') {
+            await _updateDeviceId();
+          } else if (!mapEquals(storedInfo, currentInfo)) {
+            deviceChanged = true;
+            await _newDeviceId();
+          }
         }
 
         employeeProfile = userResponse;
@@ -298,7 +346,7 @@ class AppState extends ChangeNotifier {
     try {
       // Update the device_info column in the 'khaiwals' table
       final response = await supabase.from('profiles').update({
-        'device_info': _deviceData,
+        'device_info': deviceData,
       }).eq('id', userId);
 
       if (response != null) {
@@ -315,7 +363,7 @@ class AppState extends ChangeNotifier {
     try {
       // Update the device_info column in the 'khaiwals' table
       final response = await supabase.from('profiles').update({
-        'new_device_info': _deviceData, // Set the current device ID
+        'new_device_info': deviceData, // Set the current device ID
       }).eq('id', userId);
 
       if (response != null) {

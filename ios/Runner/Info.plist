@@ -67,6 +67,12 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app uses the local network for development and debugging.</string>
 
+	<!-- Bonjour services for Flutter debug connection -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartVmService._tcp</string>
+	</array>
+
 	<!-- Location permissions -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to your location for geofencing-based attendance.</string>
@@ -74,5 +80,10 @@
 	<string>This app needs continuous location access for accurate attendance tracking.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app requires location access even in the background for geofencing features.</string>
+
+	<key>NSCameraUsageDescription</key>
+    <string>Camera access is required to capture documents</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Photo library access is required to select documents</string>
 </dict>
 </plist>

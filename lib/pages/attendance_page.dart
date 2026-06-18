@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
@@ -893,16 +894,28 @@ class _AttendancePageState extends State<AttendancePage>
           'late_minutes': lateMinutesCalc,
           'is_weekend': isWeekend,
           'is_holiday': isHoliday,
-        }).select('id');
+        }).select('id').single();
 
-        setState(() {
-          lastPunchIn = currentTime;
-          isLate = isLateArrival;
-          lateMinutes = lateMinutesCalc;
-          attendanceId = punchId[0]['id'];
-        });
+        // ✅ If we reach here, insert succeeded. Just check ID exists.
+        if (punchId['id'] != null) {
+          setState(() {
+            lastPunchIn = currentTime;
+            isLate = isLateArrival;
+            lateMinutes = lateMinutesCalc;
+            attendanceId = punchId['id'];
+          });
 
-        _showMessage(attendanceInfo['message'], isError: isLateArrival);
+          // ✅ Show success dialog
+          if (mounted) {
+            _showAttendanceSuccessDialog(
+              isPunchIn: true,
+              timestamp: currentTime, // ✅ Pass current time
+            );
+          }
+        } else {
+          _showMessage("Failed to record punch-in", isError: true);
+        }
+        // _showMessage(attendanceInfo['message'], isError: isLateArrival);
 
       } else if (canPunchOut) {
         if (scheduleType == 'fixed') {
@@ -950,7 +963,7 @@ class _AttendancePageState extends State<AttendancePage>
             bool isWeekendPrev = yesterday?['is_weekend'] == true;
             bool isHolidayPrev = yesterday?['is_holiday'] == true;
 
-            if (isWeekendPrev || isHolidayPrev) {
+                        if (isWeekendPrev || isHolidayPrev) {
               if (prevWorkHours >= minWorkHours) {
                 compOffVal = 1.0;
               } else if (prevWorkHours >= minWorkHours / 2) {
@@ -960,26 +973,78 @@ class _AttendancePageState extends State<AttendancePage>
               compStatus = isHolidayPrev || isWeekendPrev ? 'comp-w' : 'present';
               attendanceType = isHolidayPrev || isWeekendPrev ? 'comp-off-earned' : 'regular';
 
-              await supabase.from('attendance').update({
+              final updatedRecord = await supabase.from('attendance').update({
                 'punch_out': currentTime.toIso8601String(),
                 'punch_out_location': location,
                 'status': compStatus,
                 'attendance_type': attendanceType,
                 'work_hours': prevWorkHours,
-              }).eq('id', yesterday?['id']);
+              }).eq('id', yesterday?['id'])
+                  .select('id')
+                  .single();
 
-              if (compOffVal > 0) {
-                compOffValue = compOffVal;
-                await _updateCompOffBalance(profileId, currentTime);
+              if (updatedRecord['id'] != null) {
+                if (compOffVal > 0) {
+                  compOffValue = compOffVal;
+                  await _updateCompOffBalance(profileId, currentTime);
+                }
+
+                setState(() {
+                  lastPunchOut = currentTime;
+                });
+
+                if (mounted) {
+                  _showAttendanceSuccessDialog(
+                    isPunchIn: false,
+                    timestamp: currentTime,
+                  );
+                }
+                return;
+              } else {
+                _showMessage("Failed to record punch-out", isError: true);
+                return;
               }
 
-              setState(() {
-                lastPunchOut = currentTime;
-              });
+            } else {
+              // ✅ Punch-in was on a REGULAR working day (e.g., Saturday)
+              // Use punch-in day's context, NOT current day (Sunday)
+              String prevStatus;
+              if (prevWorkHours < minWorkHours / 2) {
+                prevStatus = 'absent';
+              } else if (prevWorkHours < minWorkHours) {
+                prevStatus = 'half-day';
+              } else {
+                prevStatus = 'present';
+              }
 
-              _showMessage('Punch out successfully', isError: false);
-              return;
+              final updatedRecord = await supabase.from('attendance').update({
+                'punch_out': currentTime.toIso8601String(),
+                'punch_out_location': location,
+                'status': prevStatus,
+                'attendance_type': 'regular',
+                'work_hours': prevWorkHours,
+              }).eq('id', yesterday?['id'])
+                  .select('id')
+                  .single();
+
+              if (updatedRecord['id'] != null) {
+                setState(() {
+                  lastPunchOut = currentTime;
+                });
+
+                if (mounted) {
+                  _showAttendanceSuccessDialog(
+                    isPunchIn: false,
+                    timestamp: currentTime,
+                  );
+                }
+                return;
+              } else {
+                _showMessage("Failed to record punch-out", isError: true);
+                return;
+              }
             }
+
           }
         }
 
@@ -989,7 +1054,9 @@ class _AttendancePageState extends State<AttendancePage>
           if (!shouldProceed) return;
         }
 
-        await supabase.from('attendance').update({
+
+        // ✅ Capture update response with descriptive variable name
+        final updatedRecord = await supabase.from('attendance').update({
           'punch_out': currentTime.toIso8601String(),
           'punch_out_location': location,
           'status': attendanceInfo['status'],
@@ -997,24 +1064,193 @@ class _AttendancePageState extends State<AttendancePage>
           'is_early_departure': isEarlyDep,
           'early_departure_minutes': earlyDepMinutes,
           'work_hours': finalWorkHours,
-        }).eq('id', attendanceId);
+        }).eq('id', attendanceId)
+            .select('id')  // ✅ Add .select() to get response
+            .single();     // ✅ Add .single() for one record
 
-        setState(() {
-          lastPunchOut = currentTime;
-        });
+        // ✅ Verify update succeeded
+        if (updatedRecord['id'] != null) {
+          setState(() {
+            lastPunchOut = currentTime;
+          });
 
-        // Add comp off if applicable
-        if (attendanceInfo['should_add_comp_off'] && compOffValue > 0) {
-          await _updateCompOffBalance(profileId, currentTime);
+          // Add comp off if applicable
+          if (attendanceInfo['should_add_comp_off'] && compOffValue > 0) {
+            await _updateCompOffBalance(profileId, currentTime);
+          }
+
+          if (mounted) {
+            _showAttendanceSuccessDialog(
+              isPunchIn: false,
+              timestamp: currentTime, // ✅ Pass current time
+            );
+          }
+        } else {
+          _showMessage("Failed to record punch-out", isError: true);
         }
 
-        _showMessage(attendanceInfo['message'],
-            isError: isEarlyDep || attendanceInfo['status'] == 'half-day');
+        // it is old one without confirmation dialog
+        // await supabase.from('attendance').update({
+        //   'punch_out': currentTime.toIso8601String(),
+        //   'punch_out_location': location,
+        //   'status': attendanceInfo['status'],
+        //   'attendance_type': attendanceInfo['attendance_type'],
+        //   'is_early_departure': isEarlyDep,
+        //   'early_departure_minutes': earlyDepMinutes,
+        //   'work_hours': finalWorkHours,
+        // }).eq('id', attendanceId);
+        //
+        // setState(() {
+        //   lastPunchOut = currentTime;
+        // });
+        //
+        // // Add comp off if applicable
+        // if (attendanceInfo['should_add_comp_off'] && compOffValue > 0) {
+        //   await _updateCompOffBalance(profileId, currentTime);
+        // }
+        //
+        // _showMessage(attendanceInfo['message'],
+        //     isError: isEarlyDep || attendanceInfo['status'] == 'half-day');
       }
     } catch (e) {
       _showMessage("Failed to mark attendance: $e", isError: true);
     }
   }
+
+  void _showAttendanceSuccessDialog({
+    required bool isPunchIn,
+    required DateTime timestamp, // ✅ Add timestamp parameter
+  }) {
+    // ✅ Platform-specific haptic feedback
+    if (Platform.isAndroid) {
+      HapticFeedback.selectionClick();
+    } else if (Platform.isIOS) {
+      HapticFeedback.vibrate();
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 350),
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Success Icon
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 64,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Success Message
+                Text(
+                  isPunchIn
+                      ? 'Punched In Successfully!'
+                      : 'Punched Out Successfully!',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+
+                // ✅ Timestamp Display
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      // Time
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.access_time, size: 18, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Text(
+                            DateFormat('hh:mm a').format(timestamp),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Date
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Text(
+                            DateFormat('dd MMM yyyy').format(timestamp),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Done Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
+
 
   Future<bool> showPunchOutConfirmationDialog(
       BuildContext context,
@@ -1228,7 +1464,7 @@ class _AttendancePageState extends State<AttendancePage>
       final names = locationNames.split(RegExp(r'[,|\n]')).map((n) => n.trim().toLowerCase()).toList();
 
       // Get current placemark
-      final placemarks = await placemarkFromCoordinates(28.500745, 77.290862);
+      final placemarks = await placemarkFromCoordinates(currentLat, currentLng);
       if (placemarks.isEmpty) return false;
 
       final placemark = placemarks.first;

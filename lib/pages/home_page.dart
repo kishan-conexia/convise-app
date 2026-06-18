@@ -10,14 +10,18 @@ import 'package:mnr/pages/attendance_page.dart';
 // import 'package:mnr/pages/department_hierarchy_page.dart';
 import 'package:mnr/pages/department_page.dart';
 import 'package:mnr/pages/detailed_attendance_page.dart';
+import 'package:mnr/pages/hr/hr_requests_list_page.dart';
 import 'package:mnr/pages/manager_team_request_page.dart';
 import 'package:mnr/pages/monthly_attendance_page.dart';
+import 'package:mnr/pages/profile/request_history_page.dart';
 import 'package:mnr/pages/profile_page.dart';
 import 'package:mnr/pages/sensor_page.dart';
+import 'package:mnr/pages/spanco/spanco_home_page.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart';
 import '../models/app_state.dart';
+import 'feasibility/feasibility_home_page.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -153,13 +157,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final Set<int> allowedMonthlyAttendanceDepartments = {1, 30, 301, 302, 303};
-    final Set<int> allowedDailyAttendance = {1, 30, 301, 303};
-
-    // Check if any of the managed departments are in the allowed list
-    final bool canAccessMonthlyAttendance = AppState().managedDepartmentIds.any(allowedMonthlyAttendanceDepartments.contains);
-
-    final bool canAccessDailyAttendance = AppState().managedDepartmentIds.any(allowedDailyAttendance.contains);
 
     if (isLoading) {
       return Scaffold(
@@ -290,7 +287,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             child: Column(
                               children: [
                                 _buildDrawerItem(
-                                  icon: Icons.manage_accounts_outlined,
+                                  icon: Icons.person,
                                   label: 'Profile',
                                   onTap: () {
                                     Navigator.pop(context); // Close the drawer first
@@ -298,8 +295,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
                                     });
                                   },
-
                                 ),
+
+                                // _buildDrawerItem(
+                                //   icon: Icons.calendar_today,
+                                //   label: 'Profile History',
+                                //   onTap: () {
+                                //     Navigator.pop(context); // Close the drawer first
+                                //     Future.microtask(() {
+                                //       Navigator.push(context, MaterialPageRoute(builder: (_) => const RequestHistoryPage()));
+                                //     });
+                                //   },
+                                // ),
+
                                 _buildDrawerItem(
                                   icon: Icons.fingerprint,
                                   label: 'Attendance',
@@ -307,6 +315,44 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     Navigator.pop(context); // Close the drawer first
                                     Future.microtask(() {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendancePage()));
+                                    });
+                                  },
+                                ),
+
+                                // 🎯 SINGLE MENU ITEM for Sales Hub
+                                if (appState.canAccessSpanco)
+                                _buildDrawerItem(
+                                  icon: Icons.business_center,
+                                  label: 'LMS',
+                                  onTap: () {
+                                    Navigator.pop(context); // Close drawer
+                                    Future.microtask(() {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const SpancoHomePage(),
+                                        ),
+                                      );
+                                    });
+                                  },
+                                ),
+
+                                // Feasibility Menu Item
+                                if (appState.canManageFeasibility)
+                                _buildDrawerItem(
+                                  icon: Icons.assignment_outlined,
+                                  label: 'Feasibility',
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    Future.microtask(() {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => FeasibilityHomePage(
+                                            isPendingView: appState.canManageFeasibility, // Check if user is manager
+                                          ),
+                                        ),
+                                      );
                                     });
                                   },
                                 ),
@@ -348,7 +394,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                   },
                                 ),
 
-                                if (canAccessMonthlyAttendance)
+                                if (appState.canAccessMonthlyAttendance)
                                   _buildDrawerItem(
                                     icon: Icons.calendar_month,
                                     label: 'Monthly Attendance',
@@ -360,7 +406,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     },
                                   ),
 
-                                if (canAccessDailyAttendance)
+                                if (appState.canAccessDailyAttendance)
                                 _buildDrawerItem(
                                   icon: Icons.calendar_today,
                                   label: 'Daily Attendance',
@@ -371,6 +417,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     });
                                   },
                                 ),
+
+                                if (appState.canAccessProfileRequest)
+                                  _buildDrawerItem(
+                                    icon: Icons.manage_accounts_outlined,
+                                    label: 'Update Requests',
+                                    onTap: () {
+                                      Navigator.pop(context); // Close the drawer first
+                                      Future.microtask(() {
+                                        Navigator.push(context, MaterialPageRoute(builder: (_) => const HrRequestsListPage()));
+                                      });
+                                    },
+                                  ),
 
                               ],
                             ),
@@ -839,56 +897,130 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget _buildQuickActionsSection() {
-    bool showNetwork = AppState().ovUsername.isNotEmpty && AppState().ovPassword.isNotEmpty;
+    return Consumer<AppState>(
+      builder: (context, appState, _) {
+        // Build list of available quick actions
+        final List<Map<String, dynamic>> quickActions = [];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+        // Always show Attendance
+        quickActions.add({
+          'icon': Icons.fingerprint,
+          'title': 'Attendance',
+          'subtitle': 'Mark your presence',
+          'color': Colors.indigo,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AttendancePage()),
           ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            // Attendance Card
-            Expanded(
-              child: _buildQuickActionCard(
-                icon: Icons.fingerprint,
-                title: 'Attendance',
-                subtitle: 'Mark your presence',
-                color: Colors.indigo,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AttendancePage()),
+        });
+
+        // Sales Hub (if accessible)
+        if (appState.canAccessSpanco) {
+          quickActions.add({
+            'icon': Icons.business_center,
+            'title': 'LMS',
+            'subtitle': 'Lead Management System',
+            'color': Colors.blue.shade700,
+            'onTap': () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SpancoHomePage()),
+            ),
+          });
+        }
+
+        // Feasibility (if accessible)
+        if (appState.canManageFeasibility) {
+          quickActions.add({
+            'icon': Icons.assignment_outlined,
+            'title': 'Feasibility',
+            'subtitle': 'Review requests',
+            'color': Colors.purple.shade700,
+            'onTap': () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FeasibilityHomePage(
+                  isPendingView: appState.canManageFeasibility,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+          });
+        }
 
-            // Network Monitoring Card OR placeholder
-            Expanded(
-              child: showNetwork
-                  ? _buildQuickActionCard(
-                icon: Icons.sensors,
-                title: 'Network',
-                subtitle: 'Monitor device status',
-                color: Colors.teal,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SensorPage()),
-                ),
-              ) : const SizedBox.shrink(), // Keeps the width space reserved
+        // Network Monitor (if credentials exist)
+        if (AppState().ovUsername.isNotEmpty && AppState().ovPassword.isNotEmpty) {
+          quickActions.add({
+            'icon': Icons.sensors,
+            'title': 'Network',
+            'subtitle': 'Monitor device status',
+            'color': Colors.teal,
+            'onTap': () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SensorPage()),
+            ),
+          });
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Quick Actions',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Build rows dynamically (2 cards per row)
+            ...List.generate(
+              (quickActions.length / 2).ceil(),
+                  (rowIndex) {
+                final startIndex = rowIndex * 2;
+                final endIndex = (startIndex + 2).clamp(0, quickActions.length);
+                final rowActions = quickActions.sublist(startIndex, endIndex);
+
+                return Padding(
+                  padding: EdgeInsets.only(bottom: rowIndex < (quickActions.length / 2).ceil() - 1 ? 12 : 0),
+                  child: Row(
+                    children: [
+                      // First card in row
+                      Expanded(
+                        child: _buildQuickActionCard(
+                          icon: rowActions[0]['icon'],
+                          title: rowActions[0]['title'],
+                          subtitle: rowActions[0]['subtitle'],
+                          color: rowActions[0]['color'],
+                          onTap: rowActions[0]['onTap'],
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      // Second card in row (or empty space if odd number)
+                      Expanded(
+                        child: rowActions.length > 1
+                            ? _buildQuickActionCard(
+                          icon: rowActions[1]['icon'],
+                          title: rowActions[1]['title'],
+                          subtitle: rowActions[1]['subtitle'],
+                          color: rowActions[1]['color'],
+                          onTap: rowActions[1]['onTap'],
+                        )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
+
 
 
   Widget _buildQuickActionCard({
