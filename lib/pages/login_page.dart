@@ -181,40 +181,51 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   Future<void> _initializeApp() async {
-    final session = supabase.auth.currentSession;
-    if (session != null) {
-      await AppState().initialize();
+    try {
+      final session = supabase.auth.currentSession;
+      if (session != null) {
+        await AppState().initialize();
 
-      if (AppState().updateType.isNotEmpty) {
-        _navigateToPage(InfoPage(currentVersion: AppState().currentVersion,
-            minVersion: AppState().minVersion,
-            maxVersion: AppState().maxVersion,
-            updateType: AppState().updateType));
-        return;
+        if (AppState().updateType.isNotEmpty) {
+          _navigateToPage(InfoPage(currentVersion: AppState().currentVersion,
+              minVersion: AppState().minVersion,
+              maxVersion: AppState().maxVersion,
+              updateType: AppState().updateType));
+          return;
+        }
+
+        // AFTER — same 3 places
+        if (AppState().deviceChanged) {
+          _navigateToPage(DeviceInfoPage(
+            deviceId:     AppState().deviceId,
+            deviceData:   AppState().deviceData,   // ← add this
+            deviceChanged: AppState().deviceChanged,
+          ));
+          return;
+        }
+
+        // Check for app access
+        if (AppState().appAccess == false) {
+          _navigateToPage(AccessDeniedPage());
+          return; // Terminate further navigation
+        }
+
+        _navigateToPage(const MyHomePage(title: 'Home Page'));
+      } else {
+        // User not logged in, stop the loading state
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
-
-      // AFTER — same 3 places
-      if (AppState().deviceChanged) {
-        _navigateToPage(DeviceInfoPage(
-          deviceId:     AppState().deviceId,
-          deviceData:   AppState().deviceData,   // ← add this
-          deviceChanged: AppState().deviceChanged,
-        ));
-        return;
+    } catch (e) {
+      debugPrint('Error initializing app: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
-
-      // Check for app access
-      if (AppState().appAccess == false) {
-        _navigateToPage(AccessDeniedPage());
-        return; // Terminate further navigation
-      }
-
-      _navigateToPage(const MyHomePage(title: 'Home Page'));
-    } else {
-      // User not logged in, stop the loading state
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 

@@ -250,6 +250,15 @@ class _ManagerTeamRequestsPageState extends State<ManagerTeamRequestsPage>
 
     setState(() {
       leaveRequests = List<Map<String, dynamic>>.from(response);
+
+      // this line of code only shows the requests related to the approver and will not show more in the hierarchy
+      leaveRequests = leaveRequests.where((req) {
+        final employeeId = req['employee_id'];
+        final approvalLevels = req['approval_levels'] ?? 0;
+        final myLevel = calculateApprovalLevel(employeeId);
+        return myLevel <= approvalLevels;
+      }).toList();
+
       // Calculate pending count
       // pendingLeaveCount = leaveRequests.where((req) => req['status'] == 'pending').length;
       pendingLeaveCount = leaveRequests.where((req) {
@@ -281,6 +290,15 @@ class _ManagerTeamRequestsPageState extends State<ManagerTeamRequestsPage>
 
     setState(() {
       regularizationRequests = List<Map<String, dynamic>>.from(response);
+
+      // this line of code only shows the requests related to the approver and will not show more in the hierarchy
+      regularizationRequests = regularizationRequests.where((req) {
+        final employeeId = req['employee_id'];
+        final approvalLevels = req['approval_levels'] ?? 0;
+        final myLevel = calculateApprovalLevel(employeeId);
+        return myLevel <= approvalLevels;
+      }).toList();
+
       // Calculate pending count
       // pendingRegularizationCount = regularizationRequests.where((req) => req['status'] == 'pending').length;
       pendingRegularizationCount = regularizationRequests.where((req) {

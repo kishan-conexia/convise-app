@@ -35,8 +35,8 @@ void main() async {
 
   // this one is for testing purpose
   // await Supabase.initialize(
-  //     url: 'https://ecevnkynswvadbeefgqm.supabase.co',
-  //     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjZXZua3luc3d2YWRiZWVmZ3FtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0NjU2MDQsImV4cCI6MjA2OTA0MTYwNH0.rznEVI5IaYHXySLv6Nxi57-CBEfI62mhSKPLvY1GejE'
+  //     url: 'https://oologoupcqtdkavqauzj.supabase.co',
+  //     anonKey: 'sb_publishable_3mj6-V8zi3Obtfws4zIk2w_c188tXJD'
   // );
 
   // Initialize Error Logger

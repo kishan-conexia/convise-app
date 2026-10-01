@@ -81,6 +81,10 @@
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app requires location access even in the background for geofencing features.</string>
 
+	<!-- Export Compliance Bypass -->
+     <key>ITSAppUsesNonExemptEncryption</key>
+     <false/>
+
 	<key>NSCameraUsageDescription</key>
     <string>Camera access is required to capture documents</string>
     <key>NSPhotoLibraryUsageDescription</key>

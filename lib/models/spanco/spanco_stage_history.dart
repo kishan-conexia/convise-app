@@ -38,15 +38,17 @@ class SpancoStageHistory {
   /// Create from Supabase JSON
   factory SpancoStageHistory.fromJson(Map<String, dynamic> json) {
     return SpancoStageHistory(
-      id: json['id'] as int?,
-      leadId: json['lead_id'] as int,
-      fromStage: json['from_stage'] as String?, // ✅ Safe cast
-      toStage: json['to_stage'] as String,
-      changedAt: DateTime.parse(json['changed_at'] as String),
-      changedBy: json['changed_by'] as String,
-      changeReason: json['change_reason'] as String?,
-      remarks: json['remarks'] as String?,
-      daysInPreviousStage: json['days_in_previous_stage'] as int?,
+      id: (json['id'] as num?)?.toInt(),
+      leadId: (json['lead_id'] as num?)?.toInt() ?? 0,
+      fromStage: json['from_stage']?.toString(), // ✅ Safe cast
+      toStage: (json['to_stage'] ?? '').toString(),
+      changedAt: json['changed_at'] != null
+          ? (DateTime.tryParse(json['changed_at'].toString()) ?? DateTime.now())
+          : DateTime.now(),
+      changedBy: (json['changed_by'] ?? '').toString(),
+      changeReason: json['change_reason']?.toString(),
+      remarks: json['remarks']?.toString(),
+      daysInPreviousStage: (json['days_in_previous_stage'] as num?)?.toInt(),
     );
   }
 

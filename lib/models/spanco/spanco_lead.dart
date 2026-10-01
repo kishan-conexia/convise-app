@@ -1,9 +1,21 @@
 // ignore_for_file: constant_identifier_names
 
-import 'dart:ui';
+import 'dart:convert';
 
 import '../../utils/colors.dart';
 import 'package:flutter/material.dart';
+
+Map<String, dynamic>? _asMap(dynamic value) {
+  if (value == null) return null;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  if (value is String && value.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+  }
+  return null;
+}
 
 /// SPANCO Lead Model - JSONB Version
 /// Matches new spanco_leads table schema with JSONB columns
@@ -64,52 +76,54 @@ class SpancoLead {
   /// Create from Supabase JSON
   factory SpancoLead.fromJson(Map<String, dynamic> json) {
     return SpancoLead(
-      id: json['id'] as int?,
-      leadNumber: json['lead_number'] as String?,
+      id: (json['id'] as num?)?.toInt(),
+      leadNumber: json['lead_number']?.toString(),
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? DateTime.tryParse(json['created_at'].toString())
           : null,
       updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
+          ? DateTime.tryParse(json['updated_at'].toString())
           : null,
-      currentStage: SpancoStage.fromString(json['current_stage'] as String),
-      stageUpdatedAt: DateTime.parse(json['stage_updated_at'] as String),
-      status: LeadStatus.fromString(json['status'] as String),
-      priority: Priority.fromString(json['priority'] as String),
-      assignedTo: json['assigned_to'] as String?,
+      currentStage: SpancoStage.fromString(json['current_stage']?.toString()),
+      stageUpdatedAt: json['stage_updated_at'] != null
+          ? (DateTime.tryParse(json['stage_updated_at'].toString()) ?? DateTime.now())
+          : DateTime.now(),
+      status: LeadStatus.fromString(json['status']?.toString()),
+      priority: Priority.fromString(json['priority']?.toString()),
+      assignedTo: json['assigned_to']?.toString(),
       assignedAt: json['assigned_at'] != null
-          ? DateTime.parse(json['assigned_at'] as String)
+          ? DateTime.tryParse(json['assigned_at'].toString())
           : null,
-      salesTeamId: json['sales_team_id'] as int?,
+      salesTeamId: (json['sales_team_id'] as num?)?.toInt(),
 
       // ✅ NEW: Parse expected_closure_date from direct column
       expectedClosureDate: json['expected_closure_date'] != null
-          ? DateTime.parse(json['expected_closure_date'] as String)
+          ? DateTime.tryParse(json['expected_closure_date'].toString())
           : null,
 
-      // ✅ Parse JSONB fields
-      customerInfo: LeadCustomerInfo.fromJson(json['customer_info'] as Map<String, dynamic>),
-      serviceLocation: LeadServiceLocation.fromJson(json['service_location'] as Map<String, dynamic>),
-      serviceRequirements: LeadServiceRequirements.fromJson(json['service_requirements'] as Map<String, dynamic>),
+      // ✅ Parse JSONB fields safely
+      customerInfo: LeadCustomerInfo.fromJson(_asMap(json['customer_info']) ?? {}),
+      serviceLocation: LeadServiceLocation.fromJson(_asMap(json['service_location']) ?? {}),
+      serviceRequirements: LeadServiceRequirements.fromJson(_asMap(json['service_requirements']) ?? {}),
 
-      commercialDetails: json['commercial_details'] != null
-          ? LeadCommercialDetails.fromJson(json['commercial_details'] as Map<String, dynamic>)
+      commercialDetails: _asMap(json['commercial_details']) != null
+          ? LeadCommercialDetails.fromJson(_asMap(json['commercial_details'])!)
           : null,
 
-      leadTracking: json['lead_tracking'] != null
-          ? LeadTrackingInfo.fromJson(json['lead_tracking'] as Map<String, dynamic>)
+      leadTracking: _asMap(json['lead_tracking']) != null
+          ? LeadTrackingInfo.fromJson(_asMap(json['lead_tracking'])!)
           : null,
 
-      timeline: json['timeline'] != null
-          ? LeadTimeline.fromJson(json['timeline'] as Map<String, dynamic>)
+      timeline: _asMap(json['timeline']) != null
+          ? LeadTimeline.fromJson(_asMap(json['timeline'])!)
           : null,
 
-      outcomeDetails: json['outcome_details'] != null
-          ? LeadOutcomeDetails.fromJson(json['outcome_details'] as Map<String, dynamic>)
+      outcomeDetails: _asMap(json['outcome_details']) != null
+          ? LeadOutcomeDetails.fromJson(_asMap(json['outcome_details'])!)
           : null,
 
-      notes: json['notes'] != null
-          ? LeadNotes.fromJson(json['notes'] as Map<String, dynamic>)
+      notes: _asMap(json['notes']) != null
+          ? LeadNotes.fromJson(_asMap(json['notes'])!)
           : null,
     );
   }
@@ -308,17 +322,25 @@ class LeadCustomerInfo {
     this.pan,
   });
 
+  factory LeadCustomerInfo.empty() {
+    return LeadCustomerInfo(
+      name: '',
+      type: CustomerType.individual,
+      phone: '',
+    );
+  }
+
   factory LeadCustomerInfo.fromJson(Map<String, dynamic> json) {
     return LeadCustomerInfo(
-      name: json['name'] as String,
-      type: CustomerType.fromString(json['type'] as String),
-      contactPerson: json['contact_person'] as String?,
-      phone: json['phone'] as String,
-      alternatePhone: json['alternate_phone'] as String?,
-      email: json['email'] as String?,
-      companyName: json['company_name'] as String?,
-      gstin: json['gstin'] as String?,
-      pan: json['pan'] as String?,
+      name: (json['name'] ?? '').toString(),
+      type: CustomerType.fromString(json['type']?.toString()),
+      contactPerson: json['contact_person']?.toString(),
+      phone: (json['phone'] ?? '').toString(),
+      alternatePhone: json['alternate_phone']?.toString(),
+      email: json['email']?.toString(),
+      companyName: json['company_name']?.toString(),
+      gstin: json['gstin']?.toString(),
+      pan: json['pan']?.toString(),
     );
   }
 
@@ -357,15 +379,24 @@ class LeadServiceLocation {
     this.landmark,
   });
 
+  factory LeadServiceLocation.empty() {
+    return LeadServiceLocation(
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+    );
+  }
+
   factory LeadServiceLocation.fromJson(Map<String, dynamic> json) {
     return LeadServiceLocation(
-      address: json['address'] as String,
-      city: json['city'] as String,
-      state: json['state'] as String,
-      pincode: json['pincode'] as String,
-      latitude: json['latitude'] != null ? (json['latitude'] as num).toDouble() : null,
-      longitude: json['longitude'] != null ? (json['longitude'] as num).toDouble() : null,
-      landmark: json['landmark'] as String?,
+      address: (json['address'] ?? '').toString(),
+      city: (json['city'] ?? '').toString(),
+      state: (json['state'] ?? '').toString(),
+      pincode: (json['pincode'] ?? '').toString(),
+      latitude: json['latitude'] != null ? (json['latitude'] as num?)?.toDouble() : null,
+      longitude: json['longitude'] != null ? (json['longitude'] as num?)?.toDouble() : null,
+      landmark: json['landmark']?.toString(),
     );
   }
 
@@ -410,19 +441,26 @@ class LeadServiceRequirements {
     this.expectedCustomers,
   });
 
+  factory LeadServiceRequirements.empty() {
+    return LeadServiceRequirements(
+      connectionType: ConnectionType.leasedLine,
+      bandwidthRequired: '',
+    );
+  }
+
   factory LeadServiceRequirements.fromJson(Map<String, dynamic> json) {
     return LeadServiceRequirements(
-      connectionType: ConnectionType.fromString(json['connection_type'] as String),
-      bandwidthRequired: json['bandwidth_required'] as String,
-      serviceType: json['service_type'] as String?,
-      planInterest: json['plan_interest'] as String?,
-      staticIpRequired: json['static_ip_required'] as bool? ?? false,
-      staticIpCount: json['static_ip_count'] as int? ?? 0,
-      ipv6Required: json['ipv6_required'] as bool? ?? false,
-      numberOfConnections: json['number_of_connections'] as int? ?? 1,
+      connectionType: ConnectionType.fromString(json['connection_type']?.toString()),
+      bandwidthRequired: (json['bandwidth_required'] ?? '').toString(),
+      serviceType: json['service_type']?.toString(),
+      planInterest: json['plan_interest']?.toString(),
+      staticIpRequired: json['static_ip_required'] == true,
+      staticIpCount: (json['static_ip_count'] as num?)?.toInt() ?? 0,
+      ipv6Required: json['ipv6_required'] == true,
+      numberOfConnections: (json['number_of_connections'] as num?)?.toInt() ?? 1,
       // ✅ NEW: Parse from JSON
-      currentCustomers: json['current_customers'] as int?,
-      expectedCustomers: json['expected_customers'] as int?,
+      currentCustomers: (json['current_customers'] as num?)?.toInt(),
+      expectedCustomers: (json['expected_customers'] as num?)?.toInt(),
     );
   }
 
@@ -467,22 +505,33 @@ class LeadCommercialDetails {
   factory LeadCommercialDetails.fromJson(Map<String, dynamic> json) {
     return LeadCommercialDetails(
       estimatedValue: json['estimated_value'] != null
-          ? (json['estimated_value'] as num).toDouble()
+          ? (json['estimated_value'] is num
+              ? (json['estimated_value'] as num).toDouble()
+              : double.tryParse(json['estimated_value'].toString()))
           : null,
       proposedMonthlyRental: json['proposed_monthly_rental'] != null
-          ? (json['proposed_monthly_rental'] as num).toDouble()
+          ? (json['proposed_monthly_rental'] is num
+              ? (json['proposed_monthly_rental'] as num).toDouble()
+              : double.tryParse(json['proposed_monthly_rental'].toString()))
           : null,
       proposedInstallationCharge: json['proposed_installation_charge'] != null
-          ? (json['proposed_installation_charge'] as num).toDouble()
+          ? (json['proposed_installation_charge'] is num
+              ? (json['proposed_installation_charge'] as num).toDouble()
+              : double.tryParse(json['proposed_installation_charge'].toString()))
           : null,
       proposedSecurityDeposit: json['proposed_security_deposit'] != null
-          ? (json['proposed_security_deposit'] as num).toDouble()
+          ? (json['proposed_security_deposit'] is num
+              ? (json['proposed_security_deposit'] as num).toDouble()
+              : double.tryParse(json['proposed_security_deposit'].toString()))
           : null,
       discountPercentage: json['discount_percentage'] != null
-          ? (json['discount_percentage'] as num).toDouble()
+          ? (json['discount_percentage'] is num
+              ? (json['discount_percentage'] as num).toDouble()
+              : double.tryParse(json['discount_percentage'].toString()))
           : null,
-      contractPeriodMonths: json['contract_period_months'] as int?,
-      equipmentRequired: json['equipment_required'] as String?,
+      contractPeriodMonths: (json['contract_period_months'] as num?)?.toInt() ??
+          int.tryParse(json['contract_period_months']?.toString() ?? ''),
+      equipmentRequired: json['equipment_required']?.toString(),
     );
   }
 
@@ -516,11 +565,11 @@ class LeadTrackingInfo {
   factory LeadTrackingInfo.fromJson(Map<String, dynamic> json) {
     return LeadTrackingInfo(
       source: json['source'] != null
-          ? LeadSource.fromString(json['source'] as String)
+          ? LeadSource.fromString(json['source']?.toString())
           : null,
-      sourceDetails: json['source_details'] as String?,
-      referralBy: json['referral_by'] as String?,
-      campaignId: json['campaign_id'] as String?,
+      sourceDetails: json['source_details']?.toString(),
+      referralBy: json['referral_by']?.toString(),
+      campaignId: json['campaign_id']?.toString(),
     );
   }
 
@@ -555,18 +604,18 @@ class LeadTimeline {
   factory LeadTimeline.fromJson(Map<String, dynamic> json) {
     return LeadTimeline(
       expectedClosureDate: json['expected_closure_date'] != null
-          ? DateTime.parse(json['expected_closure_date'] as String)
+          ? DateTime.tryParse(json['expected_closure_date'].toString())
           : null,
       actualClosureDate: json['actual_closure_date'] != null
-          ? DateTime.parse(json['actual_closure_date'] as String)
+          ? DateTime.tryParse(json['actual_closure_date'].toString())
           : null,
       wonDate: json['won_date'] != null
-          ? DateTime.parse(json['won_date'] as String)
+          ? DateTime.tryParse(json['won_date'].toString())
           : null,
       orderDate: json['order_date'] != null
-          ? DateTime.parse(json['order_date'] as String)
+          ? DateTime.tryParse(json['order_date'].toString())
           : null,
-      installationType: json['installation_type'] as String?,
+      installationType: json['installation_type']?.toString(),
     );
   }
 
@@ -595,9 +644,9 @@ class LeadOutcomeDetails {
 
   factory LeadOutcomeDetails.fromJson(Map<String, dynamic> json) {
     return LeadOutcomeDetails(
-      result: json['result'] as String?,
-      reason: json['reason'] as String?,
-      remarks: json['remarks'] as String?,
+      result: json['result']?.toString(),
+      reason: json['reason']?.toString(),
+      remarks: json['remarks']?.toString(),
     );
   }
 
@@ -624,10 +673,10 @@ class LeadNotes {
 
   factory LeadNotes.fromJson(Map<String, dynamic> json) {
     return LeadNotes(
-      remarks: json['remarks'] as String?,
-      internalNotes: json['internal_notes'] as String?,
-      tags: json['tags'] != null
-          ? List<String>.from(json['tags'] as List)
+      remarks: json['remarks']?.toString(),
+      internalNotes: json['internal_notes']?.toString(),
+      tags: json['tags'] is List
+          ? (json['tags'] as List).map((e) => e.toString()).toList()
           : null,
     );
   }
@@ -663,9 +712,10 @@ enum SpancoStage {
   const SpancoStage(this.value, this.label, this.stageOrder, this.isOutcome);
 
   /// ✅ UPDATED: Parse from database value
-  static SpancoStage fromString(String value) {
+  static SpancoStage fromString(String? value) {
+    if (value == null || value.isEmpty) return SpancoStage.suspect;
     return SpancoStage.values.firstWhere(
-          (stage) => stage.value == value,
+      (stage) => stage.value.toLowerCase() == value.toLowerCase(),
       orElse: () => SpancoStage.suspect, // Default fallback
     );
   }
@@ -694,9 +744,10 @@ enum CustomerType {
   final String label;
   const CustomerType(this.value, this.label);
 
-  static CustomerType fromString(String value) {
+  static CustomerType fromString(String? value) {
+    if (value == null || value.isEmpty) return CustomerType.individual;
     return CustomerType.values.firstWhere(
-          (type) => type.value == value,
+      (type) => type.value.toLowerCase() == value.toLowerCase(),
       orElse: () => CustomerType.individual,
     );
   }
@@ -713,10 +764,11 @@ enum ConnectionType {
 
   const ConnectionType(this.value, this.label);
 
-  static ConnectionType fromString(String value) {
+  static ConnectionType fromString(String? value) {
+    if (value == null || value.isEmpty) return ConnectionType.leasedLine;
     return ConnectionType.values.firstWhere(
-          (type) => type.value == value,
-      orElse: () => ConnectionType.fiber,
+      (type) => type.value.toLowerCase() == value.toLowerCase(),
+      orElse: () => ConnectionType.leasedLine,
     );
   }
 }
@@ -735,9 +787,10 @@ enum LeadSource {
 
   const LeadSource(this.value, this.label);
 
-  static LeadSource fromString(String value) {
+  static LeadSource fromString(String? value) {
+    if (value == null || value.isEmpty) return LeadSource.website;
     return LeadSource.values.firstWhere(
-          (source) => source.value == value,
+      (source) => source.value.toLowerCase() == value.toLowerCase(),
       orElse: () => LeadSource.website,
     );
   }
@@ -755,9 +808,10 @@ enum LeadStatus {
 
   const LeadStatus(this.value, this.label);
 
-  static LeadStatus fromString(String value) {
+  static LeadStatus fromString(String? value) {
+    if (value == null || value.isEmpty) return LeadStatus.active;
     return LeadStatus.values.firstWhere(
-          (status) => status.value == value,
+      (status) => status.value.toLowerCase() == value.toLowerCase(),
       orElse: () => LeadStatus.active,
     );
   }
@@ -775,9 +829,10 @@ enum Priority {
 
   const Priority(this.value, this.label);
 
-  static Priority fromString(String value) {
+  static Priority fromString(String? value) {
+    if (value == null || value.isEmpty) return Priority.medium;
     return Priority.values.firstWhere(
-          (priority) => priority.value == value,
+      (priority) => priority.value.toLowerCase() == value.toLowerCase(),
       orElse: () => Priority.medium,
     );
   }

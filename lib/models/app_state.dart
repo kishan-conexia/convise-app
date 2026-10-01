@@ -74,7 +74,8 @@ class AppState extends ChangeNotifier {
   // Add anywhere in AppState class
   bool get isTestAccount => empCode == 'app_test';
 
-  final user = supabase.auth.currentUser;
+  // Use a getter so we always read the live session, not a stale snapshot
+  get user => supabase.auth.currentUser;
 
   Map<String, dynamic> employeeProfile = {};
   Map<String, dynamic>? workSchedule;
@@ -280,64 +281,53 @@ class AppState extends ChangeNotifier {
           .eq('id', user!.id)
           .maybeSingle();
 
-      if (userResponse!.isEmpty) {
-        // Insert a new profile if both responses are empty
-        await supabase.from('profiles').insert({
-          'id': user!.id,
-          'email': user!.email!,
-          'full_name': user!.userMetadata?['full_name'],
-          'avatar_url': user!.userMetadata?['avatar_url'],
-          'device_info': deviceData,
-        });
-        // Set default values after insertion
-        userId = user!.id;
-        userEmail = user!.email!;
-        userName = user!.userMetadata?['full_name'] ?? '';
-        userAvatar = user!.userMetadata?['avatar_url'] ?? '';
+      // maybeSingle() returns null when no row is found — deny access gracefully
+      if (userResponse == null || userResponse.isEmpty) {
+        appAccess = false;
+        return;
+      }
 
-      } else {
-        userId = user!.id;
-        userEmail = user!.email!;
-        userName = userResponse['full_name'] ?? '';
-        userPhone = userResponse['phone'] ?? '';
-        empCode = userResponse['employee_code'] ?? '';
-        userAvatar = userResponse['avatar_url'] ?? '';
-        appAccess = userResponse['app_access'];
-        ovUsername = userResponse['ov_username'] ?? '';
-        ovPassword = userResponse['ov_password'] ?? '';
-        geofencing = userResponse['geofencing'];
-        departmentId = userResponse['department'];
 
-        final storedInfo = Map<String, dynamic>.from(userResponse['device_info'] ?? {});
+      userId = user!.id;
+      userEmail = user!.email!;
+      userName = userResponse['full_name'] ?? '';
+      userPhone = userResponse['phone'] ?? '';
+      empCode = userResponse['employee_code'] ?? '';
+      userAvatar = userResponse['avatar_url'] ?? '';
+      appAccess = userResponse['app_access'];
+      ovUsername = userResponse['ov_username'] ?? '';
+      ovPassword = userResponse['ov_password'] ?? '';
+      geofencing = userResponse['geofencing'];
+      departmentId = userResponse['department'];
+
+      final storedInfo = Map<String, dynamic>.from(userResponse['device_info'] ?? {});
         final currentInfo = deviceData ?? {};
 
-        // ── Skip device check for test account ──────────────────
-        final isTestAccount = (userResponse['employee_code'] ?? '') == 'app_test';
+      // ── Skip device check for test account ──────────────────
+      final isTestAccount = (userResponse['employee_code'] ?? '') == 'app_test';
 
-        if (!isTestAccount) {
-          if (userResponse['device_info'] == null || userResponse['device_info'] == '') {
-            await _updateDeviceId();
-          } else if (!mapEquals(storedInfo, currentInfo)) {
-            deviceChanged = true;
-            await _newDeviceId();
-          }
+      if (!isTestAccount) {
+        if (userResponse['device_info'] == null || userResponse['device_info'] == '') {
+          await _updateDeviceId();
+        } else if (!mapEquals(storedInfo, currentInfo)) {
+          deviceChanged = true;
+          await _newDeviceId();
         }
+      }
 
-        employeeProfile = userResponse;
+      employeeProfile = userResponse;
 
-        // Check if user is a manager of any department
-        final managerDepartments = await supabase
-            .from('departments')
-            .select('id')
-            .eq('manager_id', user!.id)
-            .eq('is_active', true);
+      // Check if user is a manager of any department
+      final managerDepartments = await supabase
+          .from('departments')
+          .select('id')
+          .eq('manager_id', user!.id)
+          .eq('is_active', true);
 
-        if (managerDepartments.isNotEmpty) {
-          isManager = true;
-          // Store managed department IDs
-          managedDepartmentIds = managerDepartments.map((d) => d['id'] as int).toList();
-        }
-
+      if (managerDepartments.isNotEmpty) {
+        isManager = true;
+        // Store managed department IDs
+        managedDepartmentIds = managerDepartments.map((d) => d['id'] as int).toList();
       }
     }
   }

@@ -165,8 +165,10 @@ class LeadService {
       };
 
       for (var lead in response as List) {
-        final stage = lead['current_stage'] as String;
-        counts[stage] = (counts[stage] ?? 0) + 1;
+        final stage = lead['current_stage']?.toString();
+        if (stage != null && counts.containsKey(stage)) {
+          counts[stage] = (counts[stage] ?? 0) + 1;
+        }
       }
 
       return counts;
@@ -555,8 +557,9 @@ class LeadService {
       final Map<String, List<int>> stageData = {};
 
       for (var record in response as List) {
-        final stage = record['from_stage'] as String;
-        final days = record['days_in_previous_stage'] as int;
+        final stage = record['from_stage']?.toString();
+        if (stage == null) continue;
+        final days = (record['days_in_previous_stage'] as num?)?.toInt() ?? 0;
 
         stageData.putIfAbsent(stage, () => []).add(days);
       }
@@ -623,10 +626,10 @@ class LeadService {
       }
 
       final feasibility = response.first;
-      final status = feasibility['status'] as String;
+      final status = feasibility['status']?.toString() ?? 'pending';
       final isFeasible = feasibility['is_feasible'] as bool?;
-      final requestNumber = feasibility['request_number'] as String?;
-      final remarks = feasibility['feasibility_remarks'] as String?;
+      final requestNumber = feasibility['request_number']?.toString();
+      final remarks = feasibility['feasibility_remarks']?.toString();
 
       // ✅ Check feasibility status
       switch (status) {
